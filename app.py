@@ -209,6 +209,9 @@ def main():
             else:
                 keyword_list = [k.strip() for k in keywords.split("\n") if k.strip()]
                 source_list = [s.strip() for s in sources.split("\n") if s.strip()]
+                default_sources = ["cheshirelife.co.uk", "theonlinelettingagents.co.uk","theguardian.com", "landlordzone.co.uk/news"]
+                source_list.extend(default_sources)
+                print("Source List: ", source_list)
                 st.session_state.generated_articles = []  # Reset articles
                 
                 for i in range(num_articles):
