@@ -40,15 +40,16 @@ def generate_subqueries(topic: str) -> List[str]:
             "role": "system",
             "content": (
                 "You are a creative and insightful search subquery generator. "
-                "Given a base topic, your task is to generate 3 refined subqueries by adding relevant keywords "
+                "Given a base topic, your task is to generate 3 refined subqueries related to each other by adding relevant keywords to the base topic. "
                 "that enhance the search intent. Each subquery should combine the base topic with an associated keyword or phrase. "
                 "Return your answer as a JSON array of strings."
+                "IMPORTANT : Make sure all subqueries are related to each other and to the base topic."                
             )
         },
         {
             "role": "user",
             "content": (
-                f"For the topic '{topic}', generate 3 subqueries by incorporating relevant keywords. "
+                f"For the topic '{topic}', generate 3 subqueries that are related to each other by incorporating relevant keywords. "
                 "For example, if the topic is 'bitcoin', you might output: "
                 "['bitcoin trends 2025', 'bitcoin investment strategies', 'bitcoin market analysis']. "
                 "If the topic is 'OpenAI', you might output: "
@@ -61,7 +62,8 @@ def generate_subqueries(topic: str) -> List[str]:
     completion = client.beta.chat.completions.parse(
         model="gpt-4o",
         messages=messages,
-        response_format=SubQuery  # Expected to be a JSON object with a field 'queries' (List[str])
+        response_format=SubQuery,
+        temperature=0.7,
     )
 
     return completion.choices[0].message.content
@@ -108,6 +110,12 @@ article_writer = Agent(
     - Place keywords strategically while maintaining readability
     - Provide proper citations
     - Create SEO-friendly structure
+    
+    4. Citation Requirements:
+    - When referencing information from retrieved content, you MUST include the EXACT URL (not just the domain) in the text
+    - Example format: 'According to a report from [URL]...'\n"
+    - ONLY include URL citations for information that directly comes from the retrieved content
+    - If no content was retrieved or if a section doesn't use retrieved information, do NOT include any source citations
 
     Always aim for engaging, informative, and well-organized articles that serve their intended purpose."""
 )
