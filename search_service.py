@@ -17,10 +17,12 @@ load_dotenv()
 # Configuration
 class Config:
     SEARCH_API_URL = "http://44.221.64.85:8080/search"
+    SERPER_API_URL = "https://google.serper.dev/search"
+    SERPER_API_KEY = "0fbfb008b1822bd4e5433669a48429219b64b44c"  # In production, this should be in env vars
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     DEFAULT_TIMEOUT = 10
     MIN_PARAGRAPH_LENGTH = 50
-    MAX_RELEVANT_RESULTS = 2  # Maximum number of relevant results to return
+    MAX_RELEVANT_RESULTS = 10  # Maximum number of relevant results to return
 
 # Data Models
 @dataclass
@@ -57,6 +59,52 @@ class SearchClient:
                 results.extend(data.get("results", []))
             except Exception as e:
                 print(f"Search error for '{search_query}': {e}")
+        
+        return results
+    
+    def search_serper(self, query: str, sources: List[str] = None) -> List[dict]:
+        """Backup search method using Serper API"""
+        results = []
+        
+        for source in sources or [""]:
+            try:
+                search_query = f"{query} site:{source.strip()}" if source else query
+                
+                # Prepare the request to Serper API
+                payload = json.dumps({
+                    "q": search_query
+                })
+                
+                headers = {
+                    'X-API-KEY': Config.SERPER_API_KEY,
+                    'Content-Type': 'application/json'
+                }
+                
+                response = requests.post(
+                    Config.SERPER_API_URL, 
+                    headers=headers, 
+                    data=payload,
+                    timeout=Config.DEFAULT_TIMEOUT
+                )
+                
+                response.raise_for_status()
+                data = response.json()
+                
+                # Extract relevant results from Serper API response
+                # Serper API has a different response format, so we need to transform it
+                organic_results = data.get("organic", [])
+                
+                for item in organic_results:
+                    results.append({
+                        "title": item.get("title", ""),
+                        "url": item.get("link", ""),
+                        "snippet": item.get("snippet", "")
+                    })
+                
+                print(f"Serper API backup search for '{search_query}' found {len(organic_results)} results")
+                
+            except Exception as e:
+                print(f"Serper API search error for '{query}': {e}")
         
         return results
 
@@ -137,11 +185,20 @@ class ContentSearchService:
         self.llm_filter = LLMFilter(openai_api_key)
     
     def search_and_extract(self, queries: List[str], sources: List[str], topic: str) -> str:
-        # 1. Search
+        # 1. Search with primary method
         all_results = []
         for query in queries:
             results = self.search_client.search(query, sources)
             all_results.extend(results)
+        
+        # If primary search returns no results, use backup Serper API
+        if not all_results:
+            print("Primary search returned no results. Using Serper API as backup.")
+            for query in queries:
+                backup_results = self.search_client.search_serper(query, sources)
+                all_results.extend(backup_results)
+                
+            print(f"Serper API backup search found {len(all_results)} results")
         
         # 2. Filter
         filtered_results = self.llm_filter.filter_relevant(topic, all_results)
