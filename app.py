@@ -240,14 +240,14 @@ def main():
                     # 4. Update article parameters with the retrieved context
                     updated_article_params = article_params.model_copy(update={"retrieved_content": search_results})
 
-                user_prompt = (
-                    "Write a comprehensive and engaging article that provides valuable information to readers. "
-                    "IMPORTANT: Only mention information that is factually supported by the retrieved sources. "
-                    "When citing information, explicitly mention the source (e.g., 'According to [Source]...'). "
-                    "Do not include any source attribution in the text if the information wasn't retrieved from "
-                    "an actual source. Avoid making up facts or statistics. If there's not enough information "
-                    "on a specific point, acknowledge the limitation rather than inventing details."
-                )
+                    user_prompt = (
+                        "Write a comprehensive and engaging article that provides valuable information to readers. "
+                        "IMPORTANT: Only mention information that is factually supported by the retrieved sources. "
+                        "When citing information, explicitly mention the source (e.g., 'According to [Source]...'). "
+                        "Do not include any source attribution in the text if the information wasn't retrieved from "
+                        "an actual source. Avoid making up facts or statistics. If there's not enough information "
+                        "on a specific point, acknowledge the limitation rather than inventing details."
+                    )
                     
                     # 5. Generate the article using the agent
                     response = article_writer.run_sync(
