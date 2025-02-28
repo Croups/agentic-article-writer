@@ -183,10 +183,12 @@ def main():
         st.session_state.chat_history = []
     if 'chat_input_field' not in st.session_state:
         st.session_state.chat_input_field = ""
+    if 'article_count' not in st.session_state:
+        st.session_state.article_count = 0
     
     
-    # Create two tabs: one for Article Generation and another for the ChatGPT-like Clone
-    tab1, tab2, tab3 = st.tabs(["Article Generator", "ChatGPT-like Clone","Automated Article Generator"])
+    # Create tabs with reordered positions: Tab1 (Manual), Tab2 (Automated), Tab3 (Chat Clone)
+    tab1, tab2, tab3 = st.tabs(["Article Generator", "Automated Article Writer", "ChatGPT-like Clone"])
     
     # --- Tab 1: Article Generator ---
     with tab1:
@@ -213,9 +215,11 @@ def main():
                 source_list.extend(default_sources)
                 print("Source List: ", source_list)
                 st.session_state.generated_articles = []  # Reset articles
+                st.session_state.article_count = 0  # Reset count
                 
                 for i in range(num_articles):
-                    st.write(f"### Generating Article {i+1}...")
+                    st.session_state.article_count += 1  # Increment article counter
+                    st.write(f"### Generating Article {st.session_state.article_count}...")
                     
                     # 1. Create article parameters
                     article_params = ArticleParameters(
@@ -237,21 +241,45 @@ def main():
                     # 3. Use the search engine to extract context from the web
                     search_results = search_service.search_and_extract(queries, source_list, topic)
                     
+                    # Check if search results are empty (adding the same logging as in Tab 3)
+                    has_search_results = search_results and search_results.strip() != ""
+                    if not has_search_results:
+                        st.warning(f"No search results found for '{topic}'. Article will be generated without source citations.")
+                    
+                    # For debugging
+                    if has_search_results:
+                        print(f"\nFound search results for '{topic}'. Sample: {search_results[:300]}...\n")
+                    else:
+                        print(f"\nNo search results found for '{topic}'. Generating without sources.\n")
+                    
                     # 4. Update article parameters with the retrieved context
                     updated_article_params = article_params.model_copy(update={"retrieved_content": search_results})
-
-                    user_prompt = (
-                        "Write a comprehensive and engaging article that provides valuable information to readers. "
-                        "IMPORTANT: Only mention information that is factually supported by the retrieved sources. "
-                        "When citing information, explicitly mention the source (e.g., 'According to [Source]...'). "
-                        "Do not include any source attribution in the text if the information wasn't retrieved from "
-                        "an actual source. Avoid making up facts or statistics. If there's not enough information "
-                        "on a specific point, acknowledge the limitation rather than inventing details."
+                    
+                    # 5. Generate the article using the agent with the same detailed prompt as Tab 3
+                    detailed_prompt = (
+                        "Write a detailed, informative article following these specific guidelines:\n\n"
+                        
+                        "CONTENT REQUIREMENTS:\n"
+                        "1. Augment and enhance the retrieved content with additional relevant information\n"
+                        "2. Organize the article with clear sections, headings, and a logical flow\n"
+                        "3. Use professional, business-oriented language matching the requested style\n\n"
+                        
+                        "SOURCE CITATION REQUIREMENTS:\n"
+                        "1. When referencing information from retrieved content, you MUST include the EXACT URL (not just the domain) in the text\n"
+                        "2. Example format: 'According to a report from [URL]...'\n"
+                        "3. ONLY include URL citations for information that directly comes from the retrieved content\n"
+                        "4. If no content was retrieved or if a section doesn't use retrieved information, do NOT include any source citations\n\n"
+                        
+                        "IMPORTANT:\n"
+                        "- Include exact URLs (complete links, not just domain names)\n"
+                        "- Only cite sources when the information comes directly from them\n"
+                        "- If the retrieved content is empty, create a general informative article with no source mentions\n"
+                        "- Write the article with different sources for each section if possible\n"
+                        "- Make sure it is interesting and engaging"
                     )
                     
-                    # 5. Generate the article using the agent
                     response = article_writer.run_sync(
-                        user_prompt=user_prompt,
+                        user_prompt=detailed_prompt,
                         deps=updated_article_params
                     )
                     article_content = response.data.content
@@ -261,24 +289,166 @@ def main():
                     
                     st.markdown(f"## {article_title}")
                     st.markdown(article_content)
-                    st.markdown("**Sources:**")
-                    st.markdown(article_sources)
+                    
+                    # Only display sources if they exist and search results were found
+                    if has_search_results and article_sources and isinstance(article_sources, list) and len(article_sources) > 0:
+                        st.markdown("**Sources:**")
+                        for source in article_sources:
+                            st.markdown(f"- {source}")
+                    elif has_search_results and article_sources and isinstance(article_sources, str) and article_sources.strip():
+                        st.markdown("**Sources:**")
+                        st.markdown(article_sources)
+                    else:
+                        st.markdown("**Note:** No specific external sources were used in this article.")
+                    
                     st.markdown("---")
                     st.markdown("---")
                 
                 st.success("Articles generated successfully!")
     
-    # --- Tab 2: ChatGPT-like Clone for Article Modification ---
+    # --- Tab 2: Automated Article Writer (moved from Tab 3) ---
     with tab2:
+        st.title("Automated Article Writer")
+        
+        # Input for number of articles
+        auto_num_articles = st.slider("Number of Articles to Generate", min_value=1, max_value=10, value=1)
+        
+        # Button to trigger generation
+        if st.button("Generate Articles Automatically"):
+            # Don't reset articles here - we want to append to existing articles from Tab 1
+            
+            # Define popular topics for automated article generation
+            automated_topics = [
+                "news",
+                "latest",
+                "latest news",
+                "latest updates",
+                "latest news in the UK",
+            ]
+                      
+            # Default sources
+            default_sources = ["cheshirelife.co.uk", "theonlinelettingagents.co.uk", "theguardian.com", "landlordzone.co.uk/news"]
+            
+            # Progress bar
+            progress_bar = st.progress(0)
+            
+            for i in range(auto_num_articles):
+                # Increment the global article counter
+                st.session_state.article_count += 1
+                
+                # Select topic based on index (or randomly if more articles than topics)
+                # Randomly select a topic from the automated_topics list
+                import random
+                topic_index = random.randint(0, len(automated_topics) - 1)
+                selected_topic = automated_topics[topic_index]
+                
+                # Get corresponding keywords
+                selected_keywords = []
+                
+                # Display status with global article counter
+                st.write(f"### Generating Article {st.session_state.article_count}")
+                
+                # 1. Create article parameters
+                article_params = ArticleParameters(
+                    topic=selected_topic,
+                    language_style="Business Language",  # Default to business language
+                    target_keywords=selected_keywords,
+                    sources=default_sources
+                )
+                
+                # 2. Generate subqueries for the topic
+                sub_queries = generate_subqueries(selected_topic)
+                try:
+                    data = json.loads(sub_queries)
+                    queries = data.get("queries", [])
+                except Exception as e:
+                    st.error(f"Error parsing subqueries for {selected_topic}: {str(e)}")
+                    queries = []
+                
+                # 3. Use the search engine to extract context from the web
+                search_results = search_service.search_and_extract(queries, default_sources, selected_topic)
+                
+                # Check if search results are empty
+                has_search_results = search_results and search_results.strip() != ""
+                if not has_search_results:
+                    st.warning(f"No search results found for '{selected_topic}'. Article will be generated without source citations.")
+                
+                # 4. Update article parameters with the retrieved context
+                updated_article_params = article_params.model_copy(update={"retrieved_content": search_results})
+                
+                # 5. Generate the article using the agent with structured instructions
+                detailed_prompt = (
+                    "Write a detailed, informative article following these specific guidelines:\n\n"
+                    
+                    "CONTENT REQUIREMENTS:\n"
+                    "1. Augment and enhance the retrieved content with additional relevant information\n"
+                    "2. Organize the article with clear sections, headings, and a logical flow\n"
+                    "3. Use professional, business-oriented language\n\n"
+                    
+                    "SOURCE CITATION REQUIREMENTS:\n"
+                    "1. When referencing information from retrieved content, you MUST include the EXACT URL (not just the domain) in the text\n"
+                    "2. Example format: 'According to a report from [URL]...'\n"
+                    "3. ONLY include URL citations for information that directly comes from the retrieved content\n"
+                    "4. If no content was retrieved or if a section doesn't use retrieved information, do NOT include any source citations\n\n"
+                    
+                    "IMPORTANT:\n"
+                    "- Include exact URLs (complete links, not just domain names)\n"
+                    "- Only cite sources when the information comes directly from them\n"
+                    "- If the retrieved content is empty, create a general informative article with no source mentions\n"
+                    "- Write the article with different sources for each section if possible"
+                )
+                
+                # For debugging
+                if has_search_results:
+                    print(f"\nFound search results for '{selected_topic}'. Sample: {search_results[:300]}...\n")
+                else:
+                    print(f"\nNo search results found for '{selected_topic}'. Generating without sources.\n")
+                
+                response = article_writer.run_sync(
+                    user_prompt=detailed_prompt,
+                    deps=updated_article_params
+                )
+                
+                article_content = response.data.content
+                article_sources = response.data.sources
+                article_title = response.data.title
+                
+                # Store the generated article in the same shared session state
+                st.session_state.generated_articles.append(article_content)
+                
+                # Display the article
+                st.markdown(f"## {article_title}")
+                st.markdown(article_content)
+                
+                # Only display sources if they exist and search results were found
+                if has_search_results and article_sources and isinstance(article_sources, list) and len(article_sources) > 0:
+                    st.markdown("**Sources:**")
+                    for source in article_sources:
+                        st.markdown(f"- {source}")
+                elif has_search_results and article_sources and isinstance(article_sources, str) and article_sources.strip():
+                    st.markdown("**Sources:**")
+                    st.markdown(article_sources)
+                else:
+                    st.markdown("**Note:** No specific external sources were used in this article.")
+                
+                # Update progress
+                progress_bar.progress((i + 1) / auto_num_articles)
+            
+            st.success(f"Successfully generated {auto_num_articles} articles automatically!")
+            st.balloons()
+
+    # --- Tab 3: ChatGPT-like Clone for Article Modification (moved from Tab 2) ---
+    with tab3:
         # Header section with clear button
         col1, col2 = st.columns([3, 1])
+        with col1:
+            st.title("Article Editing Assistant")
         with col2:
             if st.button("🗑️ Clear Chat"):
                 st.session_state.chat_history = []
                 st.rerun()
 
-    # Rest of the chat display code...        
-        # Sidebar: Select an article to modify
+        # Sidebar: Select an article to modify - now includes articles from both Tab 1 and Tab 2
         with st.sidebar:
             st.header("Select Article to Modify")
             if st.session_state.generated_articles:
@@ -294,7 +464,7 @@ def main():
                     current_article = None
                     article_index = None
             else:
-                st.info("No articles available. Please generate an article first.")
+                st.info("No articles available. Please generate articles in Tab 1 or Tab 2 first.")
                 current_article = None
                 article_index = None
         
@@ -362,9 +532,6 @@ def main():
                 
                 # # 4. Rerun so the chat updates immediately
                 st.rerun()
-
-    with tab3:
-        st.markdown("coming soon")
 
 if __name__ == "__main__":
     main()
