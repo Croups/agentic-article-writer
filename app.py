@@ -214,8 +214,8 @@ def main():
                 default_sources = ["cheshirelife.co.uk", "theonlinelettingagents.co.uk","theguardian.com", "landlordzone.co.uk/news"]
                 source_list.extend(default_sources)
                 print("Source List: ", source_list)
-                st.session_state.generated_articles = []  # Reset articles
-                st.session_state.article_count = 0  # Reset count
+                # st.session_state.generated_articles = []  # Reset articles
+                # st.session_state.article_count = 0  # Reset count
                 
                 for i in range(num_articles):
                     st.session_state.article_count += 1  # Increment article counter
