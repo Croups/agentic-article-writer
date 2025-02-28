@@ -186,7 +186,7 @@ def main():
     
     
     # Create two tabs: one for Article Generation and another for the ChatGPT-like Clone
-    tab1, tab2 = st.tabs(["Article Generator", "ChatGPT-like Clone"])
+    tab1, tab2, tab3 = st.tabs(["Article Generator", "ChatGPT-like Clone","Automated Article Generator"])
     
     # --- Tab 1: Article Generator ---
     with tab1:
@@ -362,6 +362,9 @@ def main():
                 
                 # # 4. Rerun so the chat updates immediately
                 st.rerun()
+
+    with tab3:
+        st.markdown("coming soon")
 
 if __name__ == "__main__":
     main()
