@@ -48,7 +48,7 @@ def chat_with_ai(message, chat_history, article_index=None, current_article=None
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=messages,
-        temperature=0.3,  # Add some creativity while maintaining consistency
+        temperature=0.6,  # Add some creativity while maintaining consistency
         presence_penalty=0.6,  # Encourage diverse responses
         frequency_penalty=0.5 # Reduce repetition
     )
@@ -214,8 +214,7 @@ def main():
                 default_sources = ["cheshirelife.co.uk", "theonlinelettingagents.co.uk","theguardian.com", "landlordzone.co.uk/news"]
                 source_list.extend(default_sources)
                 print("Source List: ", source_list)
-                # st.session_state.generated_articles = []  # Reset articles
-                # st.session_state.article_count = 0  # Reset count
+
                 
                 for i in range(num_articles):
                     st.session_state.article_count += 1  # Increment article counter
@@ -319,11 +318,10 @@ def main():
             
             # Define popular topics for automated article generation
             automated_topics = [
-                "news",
-                "latest",
-                "latest news",
-                "latest updates",
-                "latest news in the UK",
+                "property UK",
+                "real estate UK",
+                "real estate news UK" 
+                "property news UK"   
             ]
                       
             # Default sources
