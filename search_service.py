@@ -20,7 +20,7 @@ class Config:
     SERPER_API_URL = "https://google.serper.dev/search"
     SERPER_API_KEY = "0fbfb008b1822bd4e5433669a48429219b64b44c"  # In production, this should be in env vars
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    DEFAULT_TIMEOUT = 10
+    DEFAULT_TIMEOUT = 20
     MIN_PARAGRAPH_LENGTH = 50
     MAX_RELEVANT_RESULTS = 10  # Maximum number of relevant results to return
 
@@ -146,7 +146,7 @@ class LLMFilter:
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
