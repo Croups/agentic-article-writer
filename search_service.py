@@ -2,6 +2,7 @@ __all__ = ['search_and_filter']
 
 
 import time
+from pydantic import BaseModel
 import requests
 import openai
 import json
@@ -10,6 +11,8 @@ from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 from typing import List, Optional
 from dataclasses import dataclass
+from dotenv import load_dotenv
+
 
 # Load environment variables
 load_dotenv()
@@ -20,7 +23,7 @@ class Config:
     SERPER_API_URL = "https://google.serper.dev/search"
     SERPER_API_KEY = "0fbfb008b1822bd4e5433669a48429219b64b44c"  # In production, this should be in env vars
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    DEFAULT_TIMEOUT = 20
+    DEFAULT_TIMEOUT = 10
     MIN_PARAGRAPH_LENGTH = 50
     MAX_RELEVANT_RESULTS = 10  # Maximum number of relevant results to return
 
@@ -31,6 +34,13 @@ class SearchResult:
     url: str
     content: Optional[str] = None
     extracted_content: Optional[str] = None
+
+class RelevantResult(BaseModel):
+    title: str
+    url: str
+    
+class RelevantResults(BaseModel):
+    results: List[RelevantResult]
 
 # Search Client
 class SearchClient:
@@ -134,6 +144,7 @@ class ContentExtractor:
 
 # LLM Filter
 class LLMFilter:
+ 
     def __init__(self, api_key: str):
         self.client = openai.OpenAI(api_key=api_key)
     
@@ -144,34 +155,37 @@ class LLMFilter:
             if result.get('title') and result.get('url')
         ]
         
+        print(f"Minimal results: {minimal_results}")
+        
         try:
-            response = self.client.chat.completions.create(
+            response = self.client.beta.chat.completions.parse(
                 model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
-                        "content": f"""You are a search result filter. Analyze the search results and return ONLY the most relevant results as a JSON array.
+                        "content": f"""You are a search result filter. Analyze the search results and return ONLY the most relevant results.
                         Important rules:
                         1. Return maximum {Config.MAX_RELEVANT_RESULTS} results
                         2. Sort by relevance (most relevant first)
-                        3. Only include highly relevant results
-                        Format: [{{"title": "Title", "url": "URL"}}]"""
+                        3. Only include highly relevant results"""
                     },
                     {
                         "role": "user",
                         "content": f"Topic: {topic}\nResults: {json.dumps(minimal_results)}"
                     }
                 ],
-                temperature=0.0
+                temperature=0.0,
+                response_format=RelevantResults 
             )
             
-            result_str = response.choices[0].message.content.strip()
-            result_str = result_str.strip('`').strip()
-            if result_str.startswith('```json'):
-                result_str = result_str.replace('```json', '').replace('```', '').strip()
-                
-            filtered = json.loads(result_str)
-            return filtered if isinstance(filtered, list) else minimal_results
+            result = response.choices[0].message.parsed
+            
+            # Convert RelevantResult objects to minimal_result format dictionaries
+            filtered_results = [{'title': item.title, 'url': item.url} for item in result.results]
+            print(f"filtered_results: {filtered_results}")
+            
+            return filtered_results
+        
             
         except Exception as e:
             print(f"LLM filtering error: {e}")
