@@ -24,7 +24,7 @@ def generate_subqueries(topic: str) -> List[str]:
     """
     Generate 3 refined subqueries for a given topic by adding relevant keywords.
 
-    The function sends a prompt to the GPT-4 API asking for subqueries that enhance the search intent.
+    The function sends a prompt to the GPT-4o API asking for subqueries that enhance the search intent.
     It expects a JSON array of strings as output.
 
     Parameters:
