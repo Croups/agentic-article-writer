@@ -17,10 +17,13 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+SERPER_API_KEY = os.getenv("SERPER_API_KEY")
+print(f"SERPER_API_KEY: {SERPER_API_KEY}")
+
 # Configuration
 class Config:
     SEARCH_API_URL = "http://44.221.64.85:8080/search"
-    SERPER_API_URL = "https://google.serper.dev/search"
+    SERPER_API_URL = SERPER_API_KEY
     SERPER_API_KEY = "0fbfb008b1822bd4e5433669a48429219b64b44c"  # In production, this should be in env vars
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     DEFAULT_TIMEOUT = 10
