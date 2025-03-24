@@ -9,9 +9,10 @@ from article_generator import ArticleParameters, article_writer, generate_subque
 from search_service import ContentSearchService
 
 # Load environment variables and initialize OpenAI client
-load_dotenv()
+load_dotenv(override=True)
 api_key = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=api_key)
+
 
 # Initialize search service with the API key
 search_service = ContentSearchService(api_key)
@@ -48,8 +49,8 @@ def chat_with_ai(message, chat_history, article_index=None, current_article=None
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=messages,
-        temperature=0.6,  # Add some creativity while maintaining consistency
-        presence_penalty=0.6,  # Encourage diverse responses
+        temperature=0.6, 
+        presence_penalty=0.6, 
         frequency_penalty=0.5 # Reduce repetition
     )
     response_content = response.choices[0].message.content
@@ -262,16 +263,8 @@ def main():
                         "1. Augment and enhance the retrieved content with additional relevant information\n"
                         "2. Organize the article with clear sections, headings, and a logical flow\n"
                         "3. Use professional, business-oriented language matching the requested style\n\n"
-                        
-                        "SOURCE CITATION REQUIREMENTS:\n"
-                        "1. When referencing information from retrieved content, you MUST include the EXACT URL (not just the domain) in the text\n"
-                        "2. Example format: 'According to a report from [URL]...'\n"
-                        "3. ONLY include URL citations for information that directly comes from the retrieved content\n"
-                        "4. If no content was retrieved or if a section doesn't use retrieved information, do NOT include any source citations\n\n"
-                        
+                                      
                         "IMPORTANT:\n"
-                        "- Include exact URLs (complete links, not just domain names)\n"
-                        "- Only cite sources when the information comes directly from them\n"
                         "- If the retrieved content is empty, create a general informative article with no source mentions\n"
                         "- Write the article with different sources for each section if possible\n"
                         "- Make sure it is interesting and engaging"
@@ -309,6 +302,13 @@ def main():
     with tab2:
         st.title("Automated Article Writer")
         
+        language_style = st.selectbox(
+            "Article Style",
+            options=["Daily Language", "Casual Language", "Business Language", "Technical", "Academic"],
+            help="Select the writing style for your article.",
+            key="automatic_article_generator_language_style"
+        )
+        
         # Input for number of articles
         auto_num_articles = st.slider("Number of Articles to Generate", min_value=1, max_value=10, value=1)
         
@@ -320,8 +320,24 @@ def main():
             automated_topics = [
                 "property UK",
                 "real estate UK",
-                "real estate news UK" 
-                "property news UK"   
+                "real estate news UK",
+                "property news UK",
+                "property market UK",
+                "real estate market UK",
+                "property investment UK",
+                "real estate investment UK",
+                "property development UK",
+                "real estate development UK",
+                "property management UK",
+                "real estate management UK",
+                "property valuation UK",
+                "real estate valuation UK",
+                "property sale UK",
+                "real estate sale UK",
+                "property rental UK",
+                "real estate rental UK",
+                "property purchase UK",
+                "real estate purchase UK"
             ]
                       
             # Default sources
@@ -349,7 +365,7 @@ def main():
                 # 1. Create article parameters
                 article_params = ArticleParameters(
                     topic=selected_topic,
-                    language_style="Business Language",  # Default to business language
+                    language_style=language_style,  # Use the selected language style
                     target_keywords=selected_keywords,
                     sources=default_sources
                 )
@@ -381,19 +397,12 @@ def main():
                     "CONTENT REQUIREMENTS:\n"
                     "1. Augment and enhance the retrieved content with additional relevant information\n"
                     "2. Organize the article with clear sections, headings, and a logical flow\n"
-                    "3. Use professional, business-oriented language\n\n"
-                    
-                    "SOURCE CITATION REQUIREMENTS:\n"
-                    "1. When referencing information from retrieved content, you MUST include the EXACT URL (not just the domain) in the text\n"
-                    "2. Example format: 'According to a report from [URL]...'\n"
-                    "3. ONLY include URL citations for information that directly comes from the retrieved content\n"
-                    "4. If no content was retrieved or if a section doesn't use retrieved information, do NOT include any source citations\n\n"
-                    
+                    "3. Use professional, business-oriented language matching the requested style\n\n"
+                                    
                     "IMPORTANT:\n"
-                    "- Include exact URLs (complete links, not just domain names)\n"
-                    "- Only cite sources when the information comes directly from them\n"
                     "- If the retrieved content is empty, create a general informative article with no source mentions\n"
-                    "- Write the article with different sources for each section if possible"
+                    "- Write the article with different sources for each section if possible\n"
+                    "- Make sure it is interesting and engaging"
                 )
                 
                 # For debugging
@@ -416,19 +425,7 @@ def main():
                 
                 # Display the article
                 st.markdown(f"## {article_title}")
-                st.markdown(article_content)
-                
-                # Only display sources if they exist and search results were found
-                if has_search_results and article_sources and isinstance(article_sources, list) and len(article_sources) > 0:
-                    st.markdown("**Sources:**")
-                    for source in article_sources:
-                        st.markdown(f"- {source}")
-                elif has_search_results and article_sources and isinstance(article_sources, str) and article_sources.strip():
-                    st.markdown("**Sources:**")
-                    st.markdown(article_sources)
-                else:
-                    st.markdown("**Note:** No specific external sources were used in this article.")
-                
+                st.markdown(article_content)        
                 # Update progress
                 progress_bar.progress((i + 1) / auto_num_articles)
             
@@ -526,9 +523,7 @@ def main():
                     current_article
                 )
                 st.session_state.chat_history.append({"role": "assistant", "content": ai_response})
-                # 3. Clear the input field
-                
-                # # 4. Rerun so the chat updates immediately
+                # # 3. Rerun so the chat updates immediately
                 st.rerun()
 
 if __name__ == "__main__":
