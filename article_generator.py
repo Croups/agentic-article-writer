@@ -1,4 +1,3 @@
-
 from typing import List, Optional
 from openai import OpenAI
 from pydantic import BaseModel
@@ -12,7 +11,6 @@ import json
 from dotenv import load_dotenv
 from utils.markdown import to_markdown
 
-
 # Apply nest_asyncio to allow async code in environments like notebooks.
 nest_asyncio.apply()
 load_dotenv()
@@ -24,7 +22,7 @@ def generate_subqueries(topic: str) -> List[str]:
     """
     Generate 3 refined subqueries for a given topic by adding relevant keywords.
 
-    The function sends a prompt to the GPT-4o API asking for subqueries that enhance the search intent.
+    The function sends a prompt to the GPT-4 API asking for subqueries that enhance the search intent.
     It expects a JSON array of strings as output.
 
     Parameters:
@@ -87,6 +85,7 @@ class Article(BaseModel):
 article_writer = Agent(
     name="Article Writer Agent",
     model=model,
+    # model_settings={"temperature": 1.2}, # This is for more creative writing
     result_type=Article,
     deps_type=ArticleParameters,
     retries=3,
@@ -112,10 +111,14 @@ article_writer = Agent(
     - Create SEO-friendly structure
     
     4. Citation Requirements:
-    - When referencing information from retrieved content, you MUST include the EXACT URL (not just the domain) in the text
-    - Example format: 'According to a report from [URL]...'\n"
-    - ONLY include URL citations for information that directly comes from the retrieved content
+    - When referencing information from retrieved content, you MUST use markdown format for clickable links
+    - Example format: 'According to [The Guardian](https://www.theguardian.com/...), the market shows...' (Only use the website name as the link text, not the URL)
+    - Use the website name as the link text, not the URL
+    - ONLY include citations for information that directly comes from the retrieved content
     - If no content was retrieved or if a section doesn't use retrieved information, do NOT include any source citations
+    - Always use the complete URL in the markdown link format
+    - Make sure all citations are properly formatted as [Website Name](exact_url)
+
 
     Always aim for engaging, informative, and well-organized articles that serve their intended purpose."""
 )
@@ -128,7 +131,7 @@ async def add_article_parameters(ctx: RunContext[ArticleParameters]) -> str:
         f"Topic: {ctx.deps.topic}\n"
         f"Language Style: {ctx.deps.language_style}\n"
         f"Target Keywords: {', '.join(ctx.deps.target_keywords)}\n"
-        f"Sources: {ctx.deps.sources}\n"
+        f"Available Sources Are: {ctx.deps.sources}\n Make sure use these website names while citing"
     )
     if ctx.deps.retrieved_content:
         details += f"Retrieved Content: {ctx.deps.retrieved_content}\n"
@@ -151,21 +154,16 @@ if __name__ == "__main__":
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     service = ContentSearchService(OPENAI_API_KEY)
     
-    # Alt sorgular üretme
-    user_deadline = "2022-01"
     sub_queries = generate_subqueries(topic=sampleArticle.topic)
     data = json.loads(sub_queries)
     queries = data["queries"]
     print("Generated Subqueries:", queries)
     
-    # Arama ve içerik çekme
     search_results = service.search_and_extract(queries, sampleArticle.sources, sampleArticle.topic)
     print("Search Results:", search_results)
     
-    # Makale parametrelerini güncelleme
     updatedArticle = sampleArticle.model_copy(update={"retrieved_content": search_results})
     
-    # Agent'e makale oluşturma talimatı verme
     user_prompt = "Write a detailed article. Make sure it is interesting and engaging."
     response = article_writer.run_sync(user_prompt=user_prompt, deps=updatedArticle)
     
